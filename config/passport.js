@@ -1,18 +1,26 @@
-const passport = require('passport');
-const JwtStrategy = require('passport-jwt').Strategy;
-const ExtractJwt = require('passport-jwt').ExtractJwt;
+const { Strategy: JwtStrategy, ExtractJwt } = require('passport-jwt');
 const User = require('../models/User');
+require('dotenv').config();
 
-const opts = {
-  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-  secretOrKey: 'YOUR_SECRET_KEY' // Cambia a una variable de entorno en producción
+const options = {
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),  // Extrae el token del header Authorization
+    secretOrKey: process.env.JWT_SECRET || 'coder123',  // La clave secreta usada para verificar el token
 };
 
-passport.use(new JwtStrategy(opts, async (jwt_payload, done) => {
-  try {
-    const user = await User.findById(jwt_payload.id);
-    return user ? done(null, user) : done(null, false);
-  } catch (error) {
-    return done(error, false);
-  }
-}));
+module.exports = passport => {
+    passport.use(new JwtStrategy(options, async (jwtPayload, done) => {
+        try {
+            console.log('JWT Payload:', jwtPayload);  // Verifica el contenido del JWT
+            const user = await User.findById(jwtPayload.id);  // Busca al usuario usando el id del JWT
+
+            if (!user) {
+                return done(null, false, { message: 'Usuario no encontrado' });
+            }
+
+            return done(null, user);  // Si el usuario existe, lo pasa al siguiente middleware
+        } catch (error) {
+            console.log('Error en Passport:', error);  // Imprime los errores si hay problemas con el JWT
+            return done(error, false);
+        }
+    }));
+};
